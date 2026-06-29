@@ -50,11 +50,25 @@ export default function UploadScreen() {
     loadData();
   };
 
+  const renderColorBlock = (color) => {
+    if (!color) return null;
+    return (
+      <div style={{
+        width: '20px', height: '20px', borderRadius: '50%',
+        backgroundColor: `rgb(${color[0]}, ${color[1]}, ${color[2]})`,
+        border: '1px solid var(--surface-border)',
+        position: 'absolute', bottom: '0.5rem', left: '0.5rem',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.5)'
+      }} title="추출된 색상" />
+    );
+  };
+
   const renderGallery = (items, type) => (
     <div className="grid-gallery">
       {items.map(item => (
-        <div key={item.id} className="image-card">
+        <div key={item.id} className="image-card" style={{position: 'relative'}}>
           <img src={item.image} alt={`${type} image`} />
+          {renderColorBlock(item.color)}
           <div className="image-card-actions">
             <button 
               className="btn-icon btn-danger" 
