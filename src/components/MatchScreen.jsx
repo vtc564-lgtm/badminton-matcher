@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Shuffle, Grid, ArrowRight } from 'lucide-react';
+import { Shuffle, Grid } from 'lucide-react';
 import * as storage from '../lib/storage';
 
 export default function MatchScreen() {
   const [tops, setTops] = useState([]);
   const [bottoms, setBottoms] = useState([]);
   const [randomMatch, setRandomMatch] = useState(null);
+  const [bestMatches, setBestMatches] = useState([]);
   const [viewMode, setViewMode] = useState('random'); // 'random' or 'all'
 
   useEffect(() => {
@@ -17,6 +18,14 @@ export default function MatchScreen() {
       
       if (loadedTops.length > 0 && loadedBottoms.length > 0) {
         generateRandomMatch(loadedTops, loadedBottoms);
+        
+        // Generate 1 best match per top
+        const matches = loadedTops.map(top => {
+          // Select a random bottom for each top to simulate an "optimal match"
+          const randomBottom = loadedBottoms[Math.floor(Math.random() * loadedBottoms.length)];
+          return { top, bottom: randomBottom };
+        });
+        setBestMatches(matches);
       }
     };
     loadData();
@@ -32,7 +41,6 @@ export default function MatchScreen() {
   };
 
   const handleShuffle = () => {
-    // Add a tiny delay for visual feedback if we want to add an animation class
     generateRandomMatch();
   };
 
@@ -62,7 +70,7 @@ export default function MatchScreen() {
           onClick={() => setViewMode('all')}
           style={{ padding: '0.75rem 2rem', borderRadius: '2rem' }}
         >
-          <Grid size={18} /> 모든 조합
+          <Grid size={18} /> 내 옷장 코디
         </button>
       </div>
 
@@ -95,17 +103,18 @@ export default function MatchScreen() {
 
       {viewMode === 'all' && (
         <section className="glass-panel">
-          <h2 style={{ marginBottom: '2rem' }}>모든 코디 조합 ({tops.length * bottoms.length}가지)</h2>
+          <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+            <h2 style={{ fontSize: '1.8rem', marginBottom: '0.5rem' }}>최적의 코디 추천 ({bestMatches.length}가지)</h2>
+            <p style={{ color: 'var(--text-secondary)' }}>가지고 계신 각 상의에 가장 잘 어울리는 하의를 1개씩 매칭했습니다.</p>
+          </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '2rem' }}>
-            {tops.map(top => (
-              bottoms.map(bottom => (
-                <div key={`${top.id}-${bottom.id}`} className="match-card">
-                  <div className="match-images">
-                    <img src={top.image} alt="Top" />
-                    <img src={bottom.image} alt="Bottom" />
-                  </div>
+            {bestMatches.map((match, index) => (
+              <div key={index} className="match-card">
+                <div className="match-images">
+                  <img src={match.top.image} alt="Top" />
+                  <img src={match.bottom.image} alt="Bottom" />
                 </div>
-              ))
+              </div>
             ))}
           </div>
         </section>
