@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Shuffle, Grid } from 'lucide-react';
 import * as storage from '../lib/storage';
+import { calculateMatchScore } from '../lib/colorLogic';
 
 export default function MatchScreen() {
   const [tops, setTops] = useState([]);
   const [bottoms, setBottoms] = useState([]);
   const [randomMatch, setRandomMatch] = useState(null);
   const [bestMatches, setBestMatches] = useState([]);
-  const [viewMode, setViewMode] = useState('random'); // 'random' or 'all'
+  const [viewMode, setViewMode] = useState('random');
 
   useEffect(() => {
     const loadData = async () => {
@@ -19,12 +20,24 @@ export default function MatchScreen() {
       if (loadedTops.length > 0 && loadedBottoms.length > 0) {
         generateRandomMatch(loadedTops, loadedBottoms);
         
-        // Generate 1 best match per top
+        // Generate 1 best match per top using color scoring
         const matches = loadedTops.map(top => {
-          // Select a random bottom for each top to simulate an "optimal match"
-          const randomBottom = loadedBottoms[Math.floor(Math.random() * loadedBottoms.length)];
-          return { top, bottom: randomBottom };
+          let bestBottom = loadedBottoms[0];
+          let highestScore = -Infinity;
+
+          loadedBottoms.forEach(bottom => {
+            const score = calculateMatchScore(top.color, bottom.color);
+            if (score > highestScore) {
+              highestScore = score;
+              bestBottom = bottom;
+            }
+          });
+
+          return { top, bottom: bestBottom, score: highestScore };
         });
+
+        // Sort by highest score overall just for better presentation
+        matches.sort((a, b) => b.score - a.score);
         setBestMatches(matches);
       }
     };
@@ -34,10 +47,22 @@ export default function MatchScreen() {
   const generateRandomMatch = (topsList = tops, bottomsList = bottoms) => {
     if (topsList.length === 0 || bottomsList.length === 0) return;
     
+    // For random match, we can still just pick a random top, 
+    // but maybe pair it with its BEST bottom for consistency, 
+    // or just completely random. Let's pick a random top and its best bottom!
     const randomTop = topsList[Math.floor(Math.random() * topsList.length)];
-    const randomBottom = bottomsList[Math.floor(Math.random() * bottomsList.length)];
     
-    setRandomMatch({ top: randomTop, bottom: randomBottom });
+    let bestBottom = bottomsList[0];
+    let highestScore = -Infinity;
+    bottomsList.forEach(bottom => {
+      const score = calculateMatchScore(randomTop.color, bottom.color);
+      if (score > highestScore) {
+        highestScore = score;
+        bestBottom = bottom;
+      }
+    });
+    
+    setRandomMatch({ top: randomTop, bottom: bestBottom });
   };
 
   const handleShuffle = () => {
@@ -53,10 +78,22 @@ export default function MatchScreen() {
     );
   }
 
+  // To display color blocks (optional, for debugging or aesthetic)
+  const renderColorBlock = (color) => {
+    if (!color) return null;
+    return (
+      <div style={{
+        width: '20px', height: '20px', borderRadius: '50%',
+        backgroundColor: `rgb(${color[0]}, ${color[1]}, ${color[2]})`,
+        border: '1px solid var(--surface-border)',
+        position: 'absolute', bottom: '0.5rem', right: '0.5rem'
+      }} title="추출된 색상" />
+    );
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
       
-      {/* View Toggle Controls */}
       <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
         <button 
           className={`btn ${viewMode === 'random' ? 'btn-primary' : 'glass-panel'}`}
@@ -80,22 +117,24 @@ export default function MatchScreen() {
             <h2 style={{ fontSize: '2rem', background: 'linear-gradient(to right, #3b82f6, #8b5cf6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
               오늘의 배드민턴 코디
             </h2>
-            <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>인공지능(랜덤)이 추천하는 완벽한 조합입니다!</p>
+            <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>인공지능이 분석한 최적의 색상 조합입니다!</p>
           </div>
           
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center' }}>
-            <div style={{ width: '100%', maxWidth: '300px', borderRadius: 'var(--radius-lg)', overflow: 'hidden', boxShadow: 'var(--shadow-lg)', border: '2px solid var(--surface-border)' }}>
+            <div style={{ position: 'relative', width: '100%', maxWidth: '300px', borderRadius: 'var(--radius-lg)', overflow: 'hidden', boxShadow: 'var(--shadow-lg)', border: '2px solid var(--surface-border)' }}>
               <img src={randomMatch.top.image} alt="Top Match" style={{ width: '100%', aspectRatio: '1', objectFit: 'cover' }} />
+              {renderColorBlock(randomMatch.top.color)}
             </div>
             
-            <div style={{ width: '100%', maxWidth: '300px', borderRadius: 'var(--radius-lg)', overflow: 'hidden', boxShadow: 'var(--shadow-lg)', border: '2px solid var(--surface-border)' }}>
+            <div style={{ position: 'relative', width: '100%', maxWidth: '300px', borderRadius: 'var(--radius-lg)', overflow: 'hidden', boxShadow: 'var(--shadow-lg)', border: '2px solid var(--surface-border)' }}>
               <img src={randomMatch.bottom.image} alt="Bottom Match" style={{ width: '100%', aspectRatio: '1', objectFit: 'cover' }} />
+              {renderColorBlock(randomMatch.bottom.color)}
             </div>
           </div>
           
           <div style={{ display: 'flex', justifyContent: 'center', marginTop: '3rem' }}>
             <button className="btn btn-primary" onClick={handleShuffle} style={{ padding: '1rem 3rem', fontSize: '1.2rem', borderRadius: '3rem', boxShadow: '0 10px 15px -3px rgba(59, 130, 246, 0.5)' }}>
-              <Shuffle size={20} /> 다시 뽑기
+              <Shuffle size={20} /> 다른 코디 보기
             </button>
           </div>
         </section>
@@ -105,14 +144,20 @@ export default function MatchScreen() {
         <section className="glass-panel">
           <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
             <h2 style={{ fontSize: '1.8rem', marginBottom: '0.5rem' }}>최적의 코디 추천 ({bestMatches.length}가지)</h2>
-            <p style={{ color: 'var(--text-secondary)' }}>가지고 계신 각 상의에 가장 잘 어울리는 하의를 1개씩 매칭했습니다.</p>
+            <p style={{ color: 'var(--text-secondary)' }}>가지고 계신 각 상의의 색상을 분석하여 가장 잘 어울리는 하의를 매칭했습니다.</p>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '2rem' }}>
             {bestMatches.map((match, index) => (
               <div key={index} className="match-card">
                 <div className="match-images">
-                  <img src={match.top.image} alt="Top" />
-                  <img src={match.bottom.image} alt="Bottom" />
+                  <div style={{position: 'relative'}}>
+                    <img src={match.top.image} alt="Top" />
+                    {renderColorBlock(match.top.color)}
+                  </div>
+                  <div style={{position: 'relative'}}>
+                    <img src={match.bottom.image} alt="Bottom" />
+                    {renderColorBlock(match.bottom.color)}
+                  </div>
                 </div>
               </div>
             ))}

@@ -1,4 +1,5 @@
 import localforage from 'localforage';
+import { extractDominantColor } from './colorLogic';
 
 // Initialize stores
 const topsStore = localforage.createInstance({
@@ -20,7 +21,8 @@ export const getTops = async () => {
 };
 
 export const addTop = async (id, base64Image) => {
-  await topsStore.setItem(id, { image: base64Image, timestamp: Date.now() });
+  const dominantColor = await extractDominantColor(base64Image);
+  await topsStore.setItem(id, { image: base64Image, color: dominantColor, timestamp: Date.now() });
 };
 
 export const removeTop = async (id) => {
@@ -36,7 +38,8 @@ export const getBottoms = async () => {
 };
 
 export const addBottom = async (id, base64Image) => {
-  await bottomsStore.setItem(id, { image: base64Image, timestamp: Date.now() });
+  const dominantColor = await extractDominantColor(base64Image);
+  await bottomsStore.setItem(id, { image: base64Image, color: dominantColor, timestamp: Date.now() });
 };
 
 export const removeBottom = async (id) => {
