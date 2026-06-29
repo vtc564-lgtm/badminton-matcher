@@ -1,15 +1,32 @@
-import ColorThief from 'colorthief';
-
 export const extractDominantColor = (base64Image) => {
   return new Promise((resolve) => {
     const img = new Image();
     img.onload = () => {
       try {
-        const colorThief = new ColorThief();
-        const color = colorThief.getColor(img);
-        resolve(color); // [r, g, b]
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        // Scale down for faster processing and implicit averaging
+        canvas.width = 50;
+        canvas.height = 50;
+        ctx.drawImage(img, 0, 0, 50, 50);
+        
+        const imageData = ctx.getImageData(0, 0, 50, 50).data;
+        let r = 0, g = 0, b = 0;
+        const totalPixels = 50 * 50;
+        
+        for (let i = 0; i < imageData.length; i += 4) {
+          r += imageData[i];
+          g += imageData[i + 1];
+          b += imageData[i + 2];
+        }
+        
+        resolve([
+          Math.round(r / totalPixels),
+          Math.round(g / totalPixels),
+          Math.round(b / totalPixels)
+        ]);
       } catch (e) {
-        // Fallback color if extraction fails
+        // Fallback color if extraction fails (e.g. CORS issues)
         resolve([128, 128, 128]);
       }
     };
