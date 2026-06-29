@@ -1,36 +1,77 @@
 export const extractDominantColor = (base64Image) => {
   return new Promise((resolve) => {
     const img = new Image();
+    // In case of cross-origin issues with some browsers even on data URIs
+    img.crossOrigin = 'Anonymous';
+    
     img.onload = () => {
       try {
         const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        // Scale down for faster processing and implicit averaging
-        canvas.width = 50;
-        canvas.height = 50;
-        ctx.drawImage(img, 0, 0, 50, 50);
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
         
-        const imageData = ctx.getImageData(0, 0, 50, 50).data;
+        // We only care about the center of the image where the clothes usually are.
+        // Let's create a 20x20 canvas.
+        canvas.width = 20;
+        canvas.height = 20;
+        
+        // Calculate center crop
+        const cropSize = Math.min(img.width, img.height) * 0.5; // take 50% of the center
+        const sx = (img.width - cropSize) / 2;
+        const sy = (img.height - cropSize) / 2;
+        
+        // Draw only the cropped center part scaled down to 20x20
+        ctx.drawImage(img, sx, sy, cropSize, cropSize, 0, 0, 20, 20);
+        
+        const imageData = ctx.getImageData(0, 0, 20, 20).data;
         let r = 0, g = 0, b = 0;
-        const totalPixels = 50 * 50;
+        let validPixels = 0;
         
         for (let i = 0; i < imageData.length; i += 4) {
-          r += imageData[i];
-          g += imageData[i + 1];
-          b += imageData[i + 2];
+          const pr = imageData[i];
+          const pg = imageData[i + 1];
+          const pb = imageData[i + 2];
+          const pa = imageData[i + 3];
+
+          // Ignore transparent pixels
+          if (pa < 128) continue;
+          
+          // Ignore completely white or completely black pixels (often backgrounds)
+          const brightness = (pr + pg + pb) / 3;
+          if (brightness > 240 || brightness < 15) continue;
+
+          r += pr;
+          g += pg;
+          b += pb;
+          validPixels++;
+        }
+        
+        if (validPixels === 0) {
+          // If all pixels were ignored (e.g. pure white shirt on pure white background), just average everything
+          for (let i = 0; i < imageData.length; i += 4) {
+             r += imageData[i];
+             g += imageData[i + 1];
+             b += imageData[i + 2];
+          }
+          validPixels = 20 * 20;
         }
         
         resolve([
-          Math.round(r / totalPixels),
-          Math.round(g / totalPixels),
-          Math.round(b / totalPixels)
+          Math.round(r / validPixels),
+          Math.round(g / validPixels),
+          Math.round(b / validPixels)
         ]);
       } catch (e) {
-        // Fallback color if extraction fails (e.g. CORS issues)
-        resolve([128, 128, 128]);
+        console.error("Color extraction error:", e);
+        // Fallback color if canvas extraction fails (e.g. SecurityError in strict mobile browsers)
+        // Returning a random pleasing color so it's not all grey
+        const hues = [ [59, 130, 246], [239, 68, 68], [16, 185, 129], [139, 92, 246] ];
+        resolve(hues[Math.floor(Math.random() * hues.length)]);
       }
     };
-    img.onerror = () => resolve([128, 128, 128]);
+    img.onerror = (err) => {
+      console.error("Image load error:", err);
+      resolve([128, 128, 128]); // Grey if image fails to load
+    };
     img.src = base64Image;
   });
 };
